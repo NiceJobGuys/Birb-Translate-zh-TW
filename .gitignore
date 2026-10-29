@@ -1,0 +1,8 @@
+Artifacts/
+backups/
+*.zip
+*.sha256
+*.exe
+*.dll
+*.bak
+__pycache__/
