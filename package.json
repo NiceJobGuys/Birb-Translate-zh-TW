@@ -1,0 +1,5 @@
+{
+  "name": "birb-translate-zh-tw",
+  "private": true,
+  "devDependencies": { "acorn": "8.15.0", "acorn-walk": "8.3.4" }
+}

@@ -5,36 +5,42 @@ const assert = require('node:assert/strict');
 const { readAssets, sha256 } = require('./assets.cjs');
 const manifest = require('../manifest.json');
 const supplement = require('../translations/zh-tw-supplement.json');
+const { patchUi, replaceOnce } = require('./ui-patch.cjs');
 
 function patchBuffer(original) {
   assert.equal(sha256(original), manifest.originalSha256, 'Unsupported game version; no files changed');
   assert.equal(Object.keys(supplement).length, manifest.supplementEntries);
   assert(Object.values(supplement).every(value => typeof value === 'string'));
   const { assets } = readAssets(original);
-  const asset = assets.find(a => a.name === '/assets/editors-BtXOynup.js');
-  assert(asset, 'Expected script asset is missing');
-  const source = zlib.brotliDecompressSync(original.subarray(asset.offset, asset.offset + asset.length)).toString('utf8');
-  const loader = 'const t=Bn(la(oa(i,e),e),e);return Ds[e]=t,t';
-  const pond = 'function Wt(e){return"pt"===e?"Lago da Mina":"Mine Pond"}';
-  assert.equal(source.split(loader).length, 2, 'Unexpected language loader');
-  assert.equal(source.split(pond).length, 2, 'Unexpected pond label');
-  const code = source.replace(loader,
-    'const t=Bn(la(oa(i,e),e),e);return Ds[e]="zh"===e?jt(t,Object.entries(' + JSON.stringify(supplement) + ')):t,Ds[e]')
-    .replace(pond, 'function Wt(e){return"zh"===e?"礦坑池塘":"pt"===e?"Lago da Mina":"Mine Pond"}');
-  const compressed = zlib.brotliCompressSync(Buffer.from(code), {
-    params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 },
-  });
-  assert(compressed.length <= asset.length, 'Compressed script exceeds reserved space');
   const binary = Buffer.from(original);
-  binary.fill(0, asset.offset, asset.offset + asset.length);
-  compressed.copy(binary, asset.offset);
-  binary.writeBigUInt64LE(BigInt(compressed.length), asset.record + 24);
-  assert.equal(zlib.brotliDecompressSync(binary.subarray(asset.offset, asset.offset + compressed.length)).toString('utf8'), code);
-  const allowed = [[asset.offset, asset.offset + asset.length], [asset.record + 24, asset.record + 32]];
+  const sources = {}, allowed = [], changedAssets = [];
+  for (const kind of ['editors', 'game', 'main']) {
+    const asset = assets.find(a => a.name === manifest.assets[kind]);
+    assert(asset, `Expected ${kind} asset is missing`);
+    let code = zlib.brotliDecompressSync(original.subarray(asset.offset, asset.offset + asset.length)).toString('utf8');
+    if (kind === 'editors') {
+      code = replaceOnce(code, 'const t=Bn(la(sa(i,e),e),e);return Do[e]=t,t',
+        'const t=Bn(la(sa(i,e),e),e);return Do[e]="zh"===e?jt(t,Object.entries(' + JSON.stringify(supplement) + ')):t,Do[e]');
+      code = replaceOnce(code, 'function Wt(e){return"pt"===e?"Lago da Mina":"Mine Pond"}',
+        'function Wt(e){return"zh"===e?"礦坑池塘":"pt"===e?"Lago da Mina":"Mine Pond"}');
+    }
+    code = patchUi(kind, code);
+    const compressed = zlib.brotliCompressSync(Buffer.from(code), {
+      params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 },
+    });
+    assert(compressed.length <= asset.length, `${kind} exceeds reserved space`);
+    binary.fill(0, asset.offset, asset.offset + asset.length);
+    compressed.copy(binary, asset.offset);
+    binary.writeBigUInt64LE(BigInt(compressed.length), asset.record + 24);
+    assert.equal(zlib.brotliDecompressSync(binary.subarray(asset.offset, asset.offset + compressed.length)).toString('utf8'), code);
+    allowed.push([asset.offset, asset.offset + asset.length], [asset.record + 24, asset.record + 32]);
+    sources[kind] = code;
+    changedAssets.push({ name: asset.name, before: asset.length, after: compressed.length });
+  }
   for (let i = 0; i < original.length; i++) {
     if (original[i] !== binary[i]) assert(allowed.some(([a, b]) => i >= a && i < b), `Unexpected change at ${i}`);
   }
-  return { binary, code, report: { ...manifest, patchedSha256: sha256(binary), runtime: process.version } };
+  return { binary, code: sources.editors, sources, report: { ...manifest, changedAssets, patchedSha256: sha256(binary), runtime: process.version } };
 }
 
 module.exports = { patchBuffer };

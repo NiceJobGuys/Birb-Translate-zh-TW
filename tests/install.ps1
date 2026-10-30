@@ -19,7 +19,13 @@ foreach ($item in @('Install.ps1', 'manifest.json', 'src', 'translations')) {
 }
 $installer = Join-Path $package 'Install.ps1'
 $target = Join-Path $game 'birb.exe'
+$null = New-Item -ItemType Directory -Path (Join-Path $package 'backups')
+$legacyBackup = Join-Path $package 'backups\birb.exe.original'
+[IO.File]::WriteAllText($legacyBackup, 'older-build-backup')
 & $installer -GameDir $game
+if ([IO.File]::ReadAllText($legacyBackup) -ne 'older-build-backup') { throw '舊版本備份被覆寫' }
+$scopedBackup = Join-Path $package ('backups\' + $manifest.steamBuild + '\birb.exe.original')
+if ((Get-FileHash -LiteralPath $scopedBackup).Hash -ne $manifest.originalSha256) { throw '版本分離備份失敗' }
 $installed = (Get-FileHash -LiteralPath $target).Hash
 if ($installed -eq $manifest.originalSha256) { throw '安裝未生效' }
 & $installer -GameDir $game
@@ -34,4 +40,4 @@ try { & $installer -GameDir $game } catch {
     $rejected = $true
 }
 if (-not $rejected -or (Get-FileHash -LiteralPath $target).Hash -ne $invalidHash) { throw '版本保護失敗' }
-Write-Output 'PASS：套用、重複套用、還原、不相容版本拒絕。'
+Write-Output 'PASS：套用、重複套用、還原、不相容版本拒絕、不同 Build 備份分離。'

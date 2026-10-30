@@ -1,8 +1,15 @@
 {
   "gameVersion": "0.12.0",
-  "steamBuild": "26289109",
-  "patchVersion": "0.12.0.1",
-  "originalSha256": "fb63a8bd27448654698331170917b780f28a744a35a10782de1970de50d10279",
-  "referencePatchedSha256": "b66162e7b14d8f0a6a6a051ea91652045582cb46629992701c4df95fb7b4d7fe",
-  "supplementEntries": 328
+  "steamBuild": "26307870",
+  "patchVersion": "0.12.0.2",
+  "originalSha256": "9112432b73d3a14dffde2f293202906d6332fcffaaa7798ab04d507e0d151bc4",
+  "referencePatchedSha256": "10927e84b990962b5a1370867240abb2ed501e9dc572fed7651133842a62f2af",
+  "supplementEntries": 329,
+  "independentUiEntries": 155,
+  "assets": {
+    "editors": "/assets/editors-BpQuutHo.js",
+    "game": "/assets/game-C9KexmbH.js",
+    "main": "/assets/main-ConLSHoE.js",
+    "zh": "/assets/zh-Bl6EK4KD.js"
+  }
 }

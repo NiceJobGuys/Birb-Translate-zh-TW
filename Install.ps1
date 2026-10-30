@@ -7,8 +7,9 @@ try { . 'D:\Code\Ai-Nexus\Artifacts\scripts\script-usage\script-usage.ps1' } cat
 $ErrorActionPreference = 'Stop'
 $manifest = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'manifest.json') -Raw | ConvertFrom-Json
 $target = Join-Path ([IO.Path]::GetFullPath($GameDir)) 'birb.exe'
-$backup = Join-Path $PSScriptRoot 'backups\birb.exe.original'
-$receiptPath = Join-Path $PSScriptRoot 'backups\installed.json'
+$backupDir = Join-Path $PSScriptRoot ('backups\' + $manifest.steamBuild)
+$backup = Join-Path $backupDir 'birb.exe.original'
+$receiptPath = Join-Path $backupDir 'installed.json'
 function Get-Sha256([string]$File) { (Get-FileHash -LiteralPath $File -Algorithm SHA256).Hash.ToLowerInvariant() }
 if (-not (Test-Path -LiteralPath $target -PathType Leaf)) { throw "找不到遊戲：$target" }
 if (Get-Process -Name birb -ErrorAction SilentlyContinue) { throw '請先正常關閉 Birb；工具不會強制關閉遊戲。' }
@@ -19,7 +20,7 @@ if (Test-Path -LiteralPath $receiptPath) {
     if ($receipt.originalSha256 -ne $manifest.originalSha256) { throw '安裝紀錄不相容。' }
     $installedHash = $receipt.patchedSha256
 }
-if ($current -notin @($manifest.originalSha256, $installedHash)) { throw '遊戲版本或檔案不同，已停止，未覆寫。' }
+if ($current -notin @($manifest.originalSha256, $installedHash)) { throw "遊戲版本或檔案不同（需要 Steam Build $($manifest.steamBuild)），已停止，未覆寫。" }
 if ($Restore) {
     if ($current -eq $manifest.originalSha256) { Write-Output '已是原版，無需還原。'; return }
     if (-not (Test-Path -LiteralPath $backup) -or (Get-Sha256 $backup) -ne $manifest.originalSha256) {
